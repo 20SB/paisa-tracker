@@ -129,21 +129,21 @@ export default function DashboardPage() {
             className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow text-left"
           >
             <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
-              <span className="text-2xl">📊</span>
+              <span className="text-2xl">📋</span>
             </div>
             <h3 className="font-semibold text-gray-900">View All</h3>
             <p className="text-sm text-gray-600 mt-1">See all transactions</p>
           </button>
 
           <button
-            disabled
-            className="bg-white rounded-xl shadow-sm p-6 text-left opacity-50 cursor-not-allowed"
+            onClick={() => router.push('/analytics')}
+            className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow text-left"
           >
             <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mb-4">
-              <span className="text-2xl">💡</span>
+              <span className="text-2xl">📊</span>
             </div>
-            <h3 className="font-semibold text-gray-900">AI Insights</h3>
-            <p className="text-sm text-gray-600 mt-1">Coming soon</p>
+            <h3 className="font-semibold text-gray-900">Analytics</h3>
+            <p className="text-sm text-gray-600 mt-1">Charts & insights</p>
           </button>
         </div>
 
