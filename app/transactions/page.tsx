@@ -12,6 +12,9 @@ import TransactionList from '@/components/transactions/transaction-list'
 import TransactionStats from '@/components/transactions/transaction-stats'
 import AddTransactionForm from '@/components/transactions/add-transaction-form'
 import SMSParser from '@/components/transactions/sms-parser'
+import { TransactionListSkeleton } from '@/components/ui/skeleton'
+import { toast } from '@/lib/store/toast-store'
+import { exportToCSVWithSummary } from '@/lib/utils/export'
 
 interface Transaction {
   _id: string
@@ -29,11 +32,13 @@ export default function TransactionsPage() {
   const { user, isAuthenticated } = useAuthStore()
   const getToken = () => useAuthStore.getState().accessToken
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [showSMSParser, setShowSMSParser] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [parsedData, setParsedData] = useState<any>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -60,12 +65,30 @@ export default function TransactionsPage() {
 
       const result = await response.json()
       setTransactions(result.data)
+      setFilteredTransactions(result.data)
     } catch (error) {
       console.error('Error fetching transactions:', error)
+      toast.error('Failed to load transactions')
     } finally {
       setLoading(false)
     }
   }
+
+  // Search filter
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredTransactions(transactions)
+      return
+    }
+
+    const query = searchQuery.toLowerCase()
+    const filtered = transactions.filter((t) =>
+      t.description.toLowerCase().includes(query) ||
+      t.category.toLowerCase().includes(query) ||
+      t.merchantName?.toLowerCase().includes(query)
+    )
+    setFilteredTransactions(filtered)
+  }, [searchQuery, transactions])
 
   const handleAddTransaction = async (formData: any) => {
     try {
@@ -83,7 +106,8 @@ export default function TransactionsPage() {
           description: formData.description,
           date: formData.date,
           merchantName: formData.merchantName || null,
-          paymentMethod: formData.paymentMethod || null
+          paymentMethod: formData.paymentMethod || null,
+          accountId: formData.accountId || null
         })
       })
 
@@ -94,9 +118,11 @@ export default function TransactionsPage() {
 
       await fetchTransactions()
       setShowAddForm(false)
+      setParsedData(null)
+      toast.success('Transaction added successfully!')
     } catch (error) {
       console.error('Error creating transaction:', error)
-      alert('Failed to add transaction. Please try again.')
+      toast.error('Failed to add transaction. Please try again.')
     }
   }
 
@@ -118,7 +144,8 @@ export default function TransactionsPage() {
           description: formData.description,
           date: formData.date,
           merchantName: formData.merchantName || null,
-          paymentMethod: formData.paymentMethod || null
+          paymentMethod: formData.paymentMethod || null,
+          accountId: formData.accountId || null
         })
       })
 
@@ -129,9 +156,10 @@ export default function TransactionsPage() {
 
       await fetchTransactions()
       setEditingTransaction(null)
+      toast.success('Transaction updated successfully!')
     } catch (error) {
       console.error('Error updating transaction:', error)
-      alert('Failed to update transaction. Please try again.')
+      toast.error('Failed to update transaction. Please try again.')
     }
   }
 
@@ -155,9 +183,10 @@ export default function TransactionsPage() {
       }
 
       await fetchTransactions()
+      toast.success('Transaction deleted successfully!')
     } catch (error) {
       console.error('Error deleting transaction:', error)
-      alert('Failed to delete transaction. Please try again.')
+      toast.error('Failed to delete transaction. Please try again.')
     }
   }
 
@@ -165,6 +194,13 @@ export default function TransactionsPage() {
     setParsedData(data)
     setShowSMSParser(false)
     setShowAddForm(true)
+    toast.success('SMS parsed successfully!')
+  }
+
+  const handleExport = () => {
+    const dataToExport = filteredTransactions.length > 0 ? filteredTransactions : transactions
+    exportToCSVWithSummary(dataToExport as any)
+    toast.success(`Exported ${dataToExport.length} transactions`)
   }
 
   if (!isAuthenticated || !user) {
@@ -190,6 +226,13 @@ export default function TransactionsPage() {
               className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               ← Dashboard
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={transactions.length === 0}
+              className="px-4 py-2 text-sm font-medium text-green-600 border border-green-500 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              📥 Export
             </button>
             <button
               onClick={() => {
@@ -264,15 +307,43 @@ export default function TransactionsPage() {
           <TransactionStats transactions={transactions} period="month" />
         </div>
 
+        {/* Search Bar */}
+        {!loading && transactions.length > 0 && (
+          <div className="mb-6">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search transactions... (description, category, merchant)"
+                className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                🔍
+              </span>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <p className="text-sm text-gray-600 mt-2">
+                Found {filteredTransactions.length} of {transactions.length} transactions
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Transaction List */}
         {loading ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="text-gray-600 mt-4">Loading transactions...</p>
-          </div>
+          <TransactionListSkeleton />
         ) : (
           <TransactionList
-            transactions={transactions}
+            transactions={filteredTransactions}
             onEdit={(transaction) => {
               setEditingTransaction(transaction)
               setShowAddForm(false)
