@@ -76,3 +76,6 @@ export const useAuthStore = create<AuthStore>()(
     }
   )
 )
+
+// Helper function to get token
+export const getAuthToken = () => useAuthStore.getState().accessToken

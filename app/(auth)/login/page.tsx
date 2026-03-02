@@ -12,7 +12,7 @@ import { useAuthStore } from '@/lib/store/auth-store'
 
 export default function LoginPage() {
   const router = useRouter()
-  const setAuth = useAuthStore((state) => state.setAuth)
+  const setAuth = useAuthStore((state: any) => state.setAuth)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

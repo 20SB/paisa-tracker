@@ -5,8 +5,8 @@
 
 import jwt from 'jsonwebtoken'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
+const JWT_SECRET: string = process.env.JWT_SECRET || 'fallback-secret-change-in-production'
+const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || '7d'
 
 export interface JWTPayload {
   userId: string
@@ -19,7 +19,7 @@ export interface JWTPayload {
  * Generate JWT access token
  */
 export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
-  return jwt.sign(payload, JWT_SECRET, {
+  return (jwt.sign as any)(payload, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
   })
 }
@@ -28,7 +28,7 @@ export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string 
  * Generate refresh token (longer expiry)
  */
 export function generateRefreshToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
-  return jwt.sign(payload, JWT_SECRET, {
+  return (jwt.sign as any)(payload, JWT_SECRET, {
     expiresIn: '30d', // 30 days
   })
 }
