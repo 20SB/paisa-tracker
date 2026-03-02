@@ -5,7 +5,7 @@
  * Manual transaction entry form
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface TransactionFormData {
   amount: string
@@ -15,6 +15,7 @@ interface TransactionFormData {
   date: string
   merchantName: string
   paymentMethod: string
+  accountId: string
 }
 
 interface AddTransactionFormProps {
@@ -57,6 +58,7 @@ export default function AddTransactionForm({
   const [loading, setLoading] = useState(false)
   const [aiSuggesting, setAiSuggesting] = useState(false)
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null)
+  const [accounts, setAccounts] = useState<Array<{ _id: string; accountName: string; accountType: string }>>([])
   const [formData, setFormData] = useState<TransactionFormData>({
     amount: initialData?.amount || '',
     type: initialData?.type || 'EXPENSE',
@@ -64,8 +66,32 @@ export default function AddTransactionForm({
     description: initialData?.description || '',
     date: initialData?.date || new Date().toISOString().split('T')[0],
     merchantName: initialData?.merchantName || '',
-    paymentMethod: initialData?.paymentMethod || 'upi'
+    paymentMethod: initialData?.paymentMethod || 'upi',
+    accountId: initialData?.accountId || ''
   })
+
+  // Fetch accounts on mount
+  useEffect(() => {
+    fetchAccounts()
+  }, [])
+
+  const fetchAccounts = async () => {
+    try {
+      const token = (window as any).useAuthStore?.getState()?.accessToken
+      if (!token) return
+
+      const response = await fetch('/api/accounts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        setAccounts(result.data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching accounts:', error)
+    }
+  }
 
   const categories = formData.type === 'EXPENSE' ? expenseCategories : incomeCategories
 
@@ -317,6 +343,31 @@ export default function AddTransactionForm({
           ))}
         </select>
       </div>
+
+      {/* Account Selector */}
+      {accounts.length > 0 && (
+        <div>
+          <label htmlFor="accountId" className="block text-sm font-medium text-gray-700 mb-2">
+            Link to Account
+          </label>
+          <select
+            id="accountId"
+            value={formData.accountId}
+            onChange={(e) => handleChange('accountId', e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">No account (Optional)</option>
+            {accounts.map((account) => (
+              <option key={account._id} value={account._id}>
+                {account.accountName} ({account.accountType})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Link this transaction to track account balance
+          </p>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-3 pt-4">
