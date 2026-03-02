@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/store/auth-store'
 import TransactionList from '@/components/transactions/transaction-list'
 import TransactionStats from '@/components/transactions/transaction-stats'
 import AddTransactionForm from '@/components/transactions/add-transaction-form'
+import SMSParser from '@/components/transactions/sms-parser'
 
 interface Transaction {
   _id: string
@@ -30,7 +31,9 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showSMSParser, setShowSMSParser] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+  const [parsedData, setParsedData] = useState<any>(null)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -158,6 +161,12 @@ export default function TransactionsPage() {
     }
   }
 
+  const handleSMSParsed = (data: any) => {
+    setParsedData(data)
+    setShowSMSParser(false)
+    setShowAddForm(true)
+  }
+
   if (!isAuthenticated || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -183,10 +192,23 @@ export default function TransactionsPage() {
               ← Dashboard
             </button>
             <button
-              onClick={() => setShowAddForm(!showAddForm)}
+              onClick={() => {
+                setShowSMSParser(!showSMSParser)
+                setShowAddForm(false)
+              }}
+              className="px-4 py-2 text-sm font-medium text-purple-600 border border-purple-500 rounded-lg hover:bg-purple-50"
+            >
+              {showSMSParser ? 'Cancel' : '✨ Parse SMS'}
+            </button>
+            <button
+              onClick={() => {
+                setShowAddForm(!showAddForm)
+                setShowSMSParser(false)
+                setParsedData(null)
+              }}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600"
             >
-              {showAddForm ? 'Cancel' : '+ Add Transaction'}
+              {showAddForm ? 'Cancel' : '+ Add Manual'}
             </button>
           </div>
         </div>
@@ -194,19 +216,37 @@ export default function TransactionsPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* SMS Parser */}
+        {showSMSParser && (
+          <div className="mb-8">
+            <SMSParser
+              onParsed={handleSMSParsed}
+              onClose={() => setShowSMSParser(false)}
+            />
+          </div>
+        )}
+
         {/* Add/Edit Form */}
         {(showAddForm || editingTransaction) && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
             <h2 className="text-xl font-bold text-gray-900 mb-6">
-              {editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}
+              {editingTransaction ? 'Edit Transaction' : parsedData ? 'Review Parsed Transaction' : 'Add New Transaction'}
             </h2>
+            {parsedData && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-700">
+                  ✨ Transaction auto-filled from SMS (Confidence: {parsedData.confidence}%)
+                </p>
+              </div>
+            )}
             <AddTransactionForm
               onSubmit={editingTransaction ? handleEditTransaction : handleAddTransaction}
               onCancel={() => {
                 setShowAddForm(false)
                 setEditingTransaction(null)
+                setParsedData(null)
               }}
-              initialData={editingTransaction ? {
+              initialData={parsedData || (editingTransaction ? {
                 amount: editingTransaction.amount.toString(),
                 type: editingTransaction.type,
                 category: editingTransaction.category,
@@ -214,7 +254,7 @@ export default function TransactionsPage() {
                 date: new Date(editingTransaction.date).toISOString().split('T')[0],
                 merchantName: editingTransaction.merchantName || '',
                 paymentMethod: editingTransaction.paymentMethod || 'upi'
-              } : undefined}
+              } : undefined)}
             />
           </div>
         )}

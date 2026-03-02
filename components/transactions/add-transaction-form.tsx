@@ -55,6 +55,8 @@ export default function AddTransactionForm({
   initialData
 }: AddTransactionFormProps) {
   const [loading, setLoading] = useState(false)
+  const [aiSuggesting, setAiSuggesting] = useState(false)
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null)
   const [formData, setFormData] = useState<TransactionFormData>({
     amount: initialData?.amount || '',
     type: initialData?.type || 'EXPENSE',
@@ -87,10 +89,51 @@ export default function AddTransactionForm({
       // Reset category when type changes
       if (field === 'type' && prev.type !== value) {
         updated.category = ''
+        setAiSuggestion(null)
       }
       
       return updated
     })
+
+    // Trigger AI suggestion when merchant or description changes
+    if ((field === 'merchantName' || field === 'description') && value.length > 3) {
+      getSuggestion(value, field === 'merchantName')
+    }
+  }
+
+  const getSuggestion = async (text: string, isMerchant: boolean) => {
+    if (!formData.amount || formData.type !== 'EXPENSE') return
+
+    setAiSuggesting(true)
+    try {
+      const response = await fetch('/api/ai/categorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchant: isMerchant ? text : formData.merchantName,
+          description: !isMerchant ? text : formData.description,
+          amount: parseFloat(formData.amount),
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success && result.data.confidence > 60) {
+          setAiSuggestion(result.data.category)
+        }
+      }
+    } catch (error) {
+      console.error('AI suggestion error:', error)
+    } finally {
+      setAiSuggesting(false)
+    }
+  }
+
+  const applyAiSuggestion = () => {
+    if (aiSuggestion) {
+      setFormData(prev => ({ ...prev, category: aiSuggestion }))
+      setAiSuggestion(null)
+    }
   }
 
   return (
@@ -156,15 +199,49 @@ export default function AddTransactionForm({
         <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
           Category <span className="text-red-500">*</span>
         </label>
+        
+        {/* AI Suggestion */}
+        {aiSuggestion && aiSuggestion !== formData.category && (
+          <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-purple-600">✨</span>
+              <span className="text-sm text-purple-700">
+                AI suggests: <strong>{categories.find(c => c.value === aiSuggestion)?.label}</strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={applyAiSuggestion}
+              className="px-3 py-1 text-xs font-medium text-purple-600 border border-purple-500 rounded hover:bg-purple-100"
+            >
+              Apply
+            </button>
+          </div>
+        )}
+
+        {aiSuggesting && (
+          <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm text-gray-600">Getting AI suggestion...</span>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
           {categories.map((cat) => (
             <button
               key={cat.value}
               type="button"
-              onClick={() => handleChange('category', cat.value)}
+              onClick={() => {
+                handleChange('category', cat.value)
+                setAiSuggestion(null)
+              }}
               className={`p-3 rounded-lg border-2 text-left transition-all ${
                 formData.category === cat.value
                   ? 'border-blue-500 bg-blue-50'
+                  : aiSuggestion === cat.value
+                  ? 'border-purple-300 bg-purple-50'
                   : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
